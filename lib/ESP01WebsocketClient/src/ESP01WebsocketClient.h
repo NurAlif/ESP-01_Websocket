@@ -6,10 +6,9 @@
 
 class ESP01WebsocketClient{
     public:
+        ESP01WebsocketClient(String host, String ws_port, String uri, ESP01Serial *_esp01);
 
-        ESP01WebsocketClient(String ip_address, String ws_port, Stream &serial);
-
-        void connectToWifi();
+        void connectToWifi(String ssid, String password);
         void upgradeToWS();
         void send(char *data, int len);
         void listenServer();
@@ -19,13 +18,10 @@ class ESP01WebsocketClient{
 
     private:
         Stream *serial;
-        String URL = "";
-        String HOST = "";
-        String URI = "";
-
-        String SERVER_IP = "147.139.175.105";
+        String SERVER_URI = "/";
         String SERVER_PORT = "8177";
 
+        String HOST = "";
         String header = "";
 
         String setHeader();

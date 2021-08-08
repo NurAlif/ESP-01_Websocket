@@ -13,11 +13,12 @@ class ESP01Serial{
         ESP01Serial(Stream *_serial);
 
         //void sendCmd(char *data, int len);
-        bool sendCmd(String cmd, char findData[], int lenFindData, long timeout);
+        void sendCmd(String cmd, char findData[], int lenFindData, unsigned long timeout);
         void listen();
         void send(char *data, int len);
         void listenServer();
         int waitStartCmdResp();
+        int waitStartCmdRespSynch();
 
         // lower abstraction
 
@@ -26,8 +27,8 @@ class ESP01Serial{
         Stream *serial;
         char data2wait[8];
         int data2waitlen;
-        long timeoutDataWait;
-        long startDataWait;
+        unsigned long timeoutDataWait;
+        unsigned long startDataWait;
 
         char data[2048];
 };
