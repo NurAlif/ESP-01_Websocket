@@ -4,6 +4,10 @@
 #ifndef ESP01WebsocketClient_h
 #define ESP01WebsocketClient_h
 
+#define ESP01WS_OP_PONG 10
+#define ESP01WS_OP_PING 9
+#define ESP01WS_OP_TEXT 1
+
 class ESP01WebsocketClient{
     public:
         ESP01WebsocketClient(String host, String ws_port, String uri, ESP01Serial *_esp01);
@@ -12,7 +16,9 @@ class ESP01WebsocketClient{
         void upgradeToWS();
         void send(char *data, int len);
         void listenServer();
-
+        void listenPing();
+        void sendPacket(int opcode, int payloadLen, String payload);
+        void sendPacket(int opcode);
         // lower abstraction
         
 
@@ -26,6 +32,8 @@ class ESP01WebsocketClient{
 
         String setHeader();
         ESP01Serial *esp01;
+
+        PacketData packetData;
 };
 
 
