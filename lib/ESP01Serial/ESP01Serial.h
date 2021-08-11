@@ -26,7 +26,6 @@ struct PacketData {
 
 class ESP01Serial{
     public:
-
         ESP01Serial(Stream *_serial);
         String dataJSON;
 
@@ -39,11 +38,10 @@ class ESP01Serial{
         int waitStartCmdResp();
         int waitStartCmdRespSynch();
         int dataStatus = 0;
-        // lower abstraction
+        Stream *serial;
 
 
     private:
-        Stream *serial;
         int bufferSize = 8;
         char data2wait[8];
         char inputBuffer[2048];

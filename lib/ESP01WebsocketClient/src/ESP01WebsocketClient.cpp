@@ -17,24 +17,45 @@ ESP01WebsocketClient::ESP01WebsocketClient(String host, String ws_port, String u
         "\n";
 }
 
-void ESP01WebsocketClient::upgradeToWS(){
+ESP01WebsocketClient::ESP01WebsocketClient(String host, String ws_port, String uri, Stream *_serial){
+    SERVER_PORT = ws_port;
+    SERVER_URI = uri;
+    ESP01Serial esp01Serial(_serial);
+    esp01 = &esp01Serial;
+
+    HOST = host;
+
+    header = "GET ws://" + HOST + SERVER_URI + " HTTP/1.1\n" +
+        "Host: " + HOST + "\n" +
+        "Upgrade: websocket\n" +
+        "Connection: Upgrade\n" +
+        "Sec-WebSocket-Key: x3JJHMbDL1EzLkh9GBhXDw==\n" +
+        "Sec-WebSocket-Version: 13\n" +
+        "Origin: IoT\n" +
+        "\n";
+}
+
+bool ESP01WebsocketClient::upgradeToWS(){
 
     esp01->sendCmd("AT+CIPCLOSE=0", (char *)"OK", 2, 1000000);
     esp01->waitStartCmdRespSynch();
     esp01->sendCmd("AT+CIPMUX=1", (char *)"OK", 2, 100000);
-    if(esp01->waitStartCmdRespSynch() != ESP01_RESP_FOUND) return;
+    if(esp01->waitStartCmdRespSynch() != ESP01_RESP_FOUND) return false;
 
     int findDoubleDots = HOST.indexOf(':');
 
     esp01->sendCmd("AT+CIPSTART=4,\"TCP\",\""+ (findDoubleDots > 0? HOST.substring(0, findDoubleDots): HOST) +"\","+ SERVER_PORT, (char *)"OK", 2, 5000000);
-    if(esp01->waitStartCmdRespSynch() != ESP01_RESP_FOUND) return;
+    if(esp01->waitStartCmdRespSynch() != ESP01_RESP_FOUND) return false;
     esp01->sendCmd("AT+CIPSEND=4," +String(header.length()+4), (char *)">", 1, 5000000);
-    if(esp01->waitStartCmdRespSynch() != ESP01_RESP_FOUND) return;
+    if(esp01->waitStartCmdRespSynch() != ESP01_RESP_FOUND) return false;
 
     esp01->sendCmd(header, (char *)"OK", 2, 1000000);
     esp01->waitStartCmdRespSynch();
     esp01->sendCmd("AT+CIPCLOSE=0", (char *)"OK", 2, 1000000);
     esp01->waitStartCmdRespSynch();
+
+    timerServerPing = millis();
+    return true;
 }
 
 void ESP01WebsocketClient::connectToWifi(String ssid, String password){
@@ -50,15 +71,19 @@ void ESP01WebsocketClient::connectToWifi(String ssid, String password){
 
 void ESP01WebsocketClient::listenServer(){
     
-    sendPacket(ESP01WS_OP_TEXT, 11, "HELLO WORLD");
+    // sendPacket(ESP01WS_OP_TEXT, 11, "HELLO WORLD");
+    Serial.print("STATESTATESTATESTATESTATESTATESTATE => ");
+    Serial.println(packetData.state);
     if(esp01->listenJSON(&packetData)){
-        if(packetData.header == 137){
-            Serial.print("PING !!!");
-
+        timerServerPing = millis();
+        if(packetData.header == 137)
             sendPacket(ESP01WS_OP_PONG);
-        }
-        Serial.print("DATA IN >");
+            
         Serial.println(packetData.data);
+    }
+    if(timerServerPing != 0 && millis() - timerServerPing > TIMEOUT_SERVER_PING){
+        // dissconnected
+        while(!upgradeToWS()){delay(WS_RECONNECT_INTERVAL);}
     }
 }
 
