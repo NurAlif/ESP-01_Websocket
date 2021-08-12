@@ -14,6 +14,7 @@
 #define ESP01_STATE_READ_SIZE    4
 #define ESP01_STATE_FIND_DATA    5
 #define ESP01_STATE_READ_DATA    6
+#define ESP01_STATE_COMPLETE    6
 
 struct PacketData {
     int state;
@@ -22,7 +23,7 @@ struct PacketData {
     int size;
     uint8_t header;
     String data;
-} ;
+};
 
 class ESP01Serial{
     public:
@@ -32,13 +33,18 @@ class ESP01Serial{
         //void sendCmd(char *data, int len);
         void sendCmd(String cmd, char findData[], int lenFindData, unsigned long timeout);
         void sendCmd(uint8_t *cmd, int lenCmd, char findData[], int lenFindData, unsigned long timeout);
-        bool listenJSON(PacketData *packetData);
+        bool packetAvailable();
+        void processPacket(PacketData *packetData, char data);
+        PacketData popPacket();
+        int packetCount = 0;
+        void readSerial();
         void send(char *data, int len);
         void listenServer();
         int waitStartCmdResp();
         int waitStartCmdRespSynch();
         int dataStatus = 0;
         Stream *serial;
+        PacketData packetBuffer[8];
 
 
     private:
@@ -51,5 +57,9 @@ class ESP01Serial{
         unsigned long startDataWait;
 
         char data[2048];
+
+        void shiftPacketsToLeft();
+
+
 };
 #endif

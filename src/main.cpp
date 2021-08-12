@@ -1,5 +1,4 @@
 #include <Arduino.h>
-#include "ESP01Serial.h"
 #include "ESP01WebsocketClient.h"
 
 ESP01WebsocketClient ws("147.139.175.105:8177", "8177", "/", &Serial1);

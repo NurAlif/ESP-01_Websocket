@@ -99,60 +99,87 @@ int ESP01Serial::waitStartCmdRespSynch(){
     return response;
 }
 
-bool ESP01Serial::listenJSON(PacketData *PacketData){
-    while(serial->available()){
+void ESP01Serial::processPacket(PacketData *packetData, char currentChar){
+    
+    switch(packetData->state){
+        case ESP01_STATE_FIND_START:
+            if(currentChar == '+')
+                packetData->state = ESP01_STATE_FIND_CONID;
+            break;
+        case ESP01_STATE_FIND_CONID:
+            if(currentChar == ','){
+                packetData->state = ESP01_STATE_READ_CONID;
+                packetData->readIndex = 0;
+            }
+            break;
+        case ESP01_STATE_READ_CONID:
+            if(currentChar == ','){
+                packetData->state = ESP01_STATE_READ_SIZE;
+                packetData->readIndex = 0;
+            }
+            else{
+                packetData->conID = 
+                (packetData->readIndex <= 0? 0 : packetData->conID*10) 
+                + (int)(currentChar - '0');
+                packetData->readIndex++;
+            }
+            break;
+        case ESP01_STATE_READ_SIZE:
+            if(currentChar == ':'){
+                packetData->state = ESP01_STATE_READ_DATA;
+                packetData->readIndex = 0;
+                packetData->data = "";
+            }
+            else{
+                packetData->size = 
+                (packetData->readIndex <= 0? 0 : packetData->size*10) 
+                + (int)(currentChar - '0');
+                packetData->readIndex++;
+            }
+            break;
+        case ESP01_STATE_READ_DATA:
+            packetData->data += currentChar;
+            if(packetData->readIndex <= 0) packetData->header = uint8_t(currentChar);
+            packetData->readIndex++;
+            if(packetData->readIndex >= packetData->size) {
+                packetData->state = ESP01_STATE_FIND_START;
+            }
+            break;
+        default:
+            if(currentChar == '+')
+                packetData->state = ESP01_STATE_FIND_CONID;
+    }
+}
 
+void ESP01Serial::readSerial(){
+    PacketData *packetCurrent = &packetBuffer[packetCount];
+
+    while(serial->available()){
         char currentChar = serial->read();
         
-        switch(PacketData->state){
-            case ESP01_STATE_FIND_START:
-                if(currentChar == '+')
-                    PacketData->state = ESP01_STATE_FIND_CONID;
-                break;
-            case ESP01_STATE_FIND_CONID:
-                if(currentChar == ','){
-                    PacketData->state = ESP01_STATE_READ_CONID;
-                    PacketData->readIndex = 0;
-                }
-                break;
-            case ESP01_STATE_READ_CONID:
-                if(currentChar == ','){
-                    PacketData->state = ESP01_STATE_READ_SIZE;
-                    PacketData->readIndex = 0;
-                }
-                else{
-                    PacketData->conID = 
-                    (PacketData->readIndex <= 0? 0 : PacketData->conID*10) 
-                    + (int)(currentChar - '0');
-                    PacketData->readIndex++;
-                }
-                break;
-            case ESP01_STATE_READ_SIZE:
-                if(currentChar == ':'){
-                    PacketData->state = ESP01_STATE_READ_DATA;
-                    PacketData->readIndex = 0;
-                    PacketData->data = "";
-                }
-                else{
-                    PacketData->size = 
-                    (PacketData->readIndex <= 0? 0 : PacketData->size*10) 
-                    + (int)(currentChar - '0');
-                    PacketData->readIndex++;
-                }
-                break;
-            case ESP01_STATE_READ_DATA:
-                PacketData->data += currentChar;
-                if(PacketData->readIndex <= 0) PacketData->header = uint8_t(currentChar);
-                PacketData->readIndex++;
-                if(PacketData->readIndex >= PacketData->size) {
-                    PacketData->state = ESP01_STATE_FIND_START;
-                    return true;
-                }
-                break;
-            default:
-                if(currentChar == '+')
-                    PacketData->state = ESP01_STATE_FIND_CONID;
+        processPacket(packetCurrent, currentChar);
+
+        if(packetCurrent->state == ESP01_STATE_COMPLETE){
+            packetCount++;
+            if(packetCount >= 8) shiftPacketsToLeft();
+            packetCurrent = &packetBuffer[packetCount];
         }
     }
-    return false;
+}
+
+PacketData ESP01Serial::popPacket(){
+    PacketData packetData = packetBuffer[0];
+    shiftPacketsToLeft();
+    return packetData;
+}
+
+bool ESP01Serial::packetAvailable(){
+    return packetCount > 0? true : false;
+}
+
+void ESP01Serial::shiftPacketsToLeft(){
+    for(int i = 1; i < packetCount-1; i++){
+        packetBuffer[i-1] = packetBuffer[i];
+    }
+    packetBuffer[--packetCount].state = ESP01_STATE_FIND_START;
 }

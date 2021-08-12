@@ -74,7 +74,10 @@ void ESP01WebsocketClient::listenServer(){
     // sendPacket(ESP01WS_OP_TEXT, 11, "HELLO WORLD");
     Serial.print("STATESTATESTATESTATESTATESTATESTATE => ");
     Serial.println(packetData.state);
-    if(esp01->listenJSON(&packetData)){
+
+    esp01->readSerial();
+
+    if(esp01->packetAvailable()){
         timerServerPing = millis();
         if(packetData.header == 137)
             sendPacket(ESP01WS_OP_PONG);
