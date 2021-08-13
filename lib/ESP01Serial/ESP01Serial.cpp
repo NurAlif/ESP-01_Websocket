@@ -181,7 +181,7 @@ bool ESP01Serial::packetAvailable(){
 }
 
 void ESP01Serial::shiftPacketsToLeft(){
-    for(int i = 1; i < packetCount-1; i++){
+    for(int i = 1; i < packetCount; i++){
         packetBuffer[i-1] = packetBuffer[i];
     }
     packetBuffer[--packetCount].state = ESP01_STATE_FIND_START;
