@@ -128,7 +128,6 @@ void ESP01Serial::processPacket(PacketData *packetData, char currentChar){
             if(currentChar == ':'){
                 packetData->state = ESP01_STATE_READ_DATA;
                 packetData->readIndex = 0;
-                packetData->data = "";
             }
             else{
                 packetData->size = 
@@ -138,11 +137,14 @@ void ESP01Serial::processPacket(PacketData *packetData, char currentChar){
             }
             break;
         case ESP01_STATE_READ_DATA:
-            packetData->data += currentChar;
+            Serial.print("<");
+            packetData->data[packetData->readIndex] = currentChar;
             if(packetData->readIndex <= 0) packetData->header = uint8_t(currentChar);
             packetData->readIndex++;
             if(packetData->readIndex >= packetData->size) {
-                packetData->state = ESP01_STATE_FIND_START;
+                packetData->state = ESP01_STATE_COMPLETE;
+                Serial.println("Packet COmplete");
+                delay(1);
             }
             break;
         default:
@@ -153,10 +155,10 @@ void ESP01Serial::processPacket(PacketData *packetData, char currentChar){
 
 void ESP01Serial::readSerial(){
     PacketData *packetCurrent = &packetBuffer[packetCount];
-
     while(serial->available()){
         char currentChar = serial->read();
-        
+        Serial.print(currentChar);
+        // Serial.print(packetCount);
         processPacket(packetCurrent, currentChar);
 
         if(packetCurrent->state == ESP01_STATE_COMPLETE){
@@ -170,6 +172,7 @@ void ESP01Serial::readSerial(){
 PacketData ESP01Serial::popPacket(){
     PacketData packetData = packetBuffer[0];
     shiftPacketsToLeft();
+    Serial.println("SHIFT");
     return packetData;
 }
 
@@ -182,4 +185,5 @@ void ESP01Serial::shiftPacketsToLeft(){
         packetBuffer[i-1] = packetBuffer[i];
     }
     packetBuffer[--packetCount].state = ESP01_STATE_FIND_START;
+    // packetBuffer[--packetCount].readIndex = 0;
 }

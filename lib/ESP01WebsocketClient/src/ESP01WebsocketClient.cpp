@@ -72,17 +72,16 @@ void ESP01WebsocketClient::connectToWifi(String ssid, String password){
 void ESP01WebsocketClient::listenServer(){
     
     // sendPacket(ESP01WS_OP_TEXT, 11, "HELLO WORLD");
-    Serial.print("STATESTATESTATESTATESTATESTATESTATE => ");
-    Serial.println(packetData.state);
 
     esp01->readSerial();
-
     if(esp01->packetAvailable()){
         timerServerPing = millis();
-        if(packetData.header == 137)
+        PacketData packet = esp01->popPacket();
+        if(packet.header == 137)
             sendPacket(ESP01WS_OP_PONG);
-            
-        Serial.println(packetData.data);
+        for(int i = 0; i < packet.readIndex; i++){
+            Serial.print(packet.data[i]);
+        }
     }
     if(timerServerPing != 0 && millis() - timerServerPing > TIMEOUT_SERVER_PING){
         // dissconnected
@@ -119,7 +118,10 @@ void ESP01WebsocketClient::sendPacket(int opcode, int payloadLen, String payload
     esp01->waitStartCmdRespSynch();
     esp01->sendCmd((uint8_t *)packet, lenTotal, (char *)"OK", 2, 50000);
 }
+
 void ESP01WebsocketClient::sendPacket(int opcode){
+    Serial.println("SendPacket");
+
     uint8_t header[2];
     header[0] = 128;
     header[0] += opcode;
@@ -130,3 +132,6 @@ void ESP01WebsocketClient::sendPacket(int opcode){
     esp01->waitStartCmdRespSynch();
     esp01->sendCmd((uint8_t *)header, 2, (char *)"OK", 2, 50000);
 }
+
+
+

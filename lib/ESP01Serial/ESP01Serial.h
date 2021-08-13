@@ -14,15 +14,15 @@
 #define ESP01_STATE_READ_SIZE    4
 #define ESP01_STATE_FIND_DATA    5
 #define ESP01_STATE_READ_DATA    6
-#define ESP01_STATE_COMPLETE    6
+#define ESP01_STATE_COMPLETE    7
 
 struct PacketData {
-    int state;
+    int state = 0;
     int conID;
-    int readIndex;
+    int readIndex = 0;
     int size;
     uint8_t header;
-    String data;
+    char data[512];
 };
 
 class ESP01Serial{
