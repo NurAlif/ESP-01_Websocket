@@ -36,23 +36,22 @@ ESP01WebsocketClient::ESP01WebsocketClient(String host, String ws_port, String u
 }
 
 bool ESP01WebsocketClient::upgradeToWS(){
-
     esp01->sendCmd("AT+CIPCLOSE=0", (char *)"OK", 2, 1000000);
-    esp01->waitStartCmdRespSynch();
+    esp01->waitStartCmdRespSync();
     esp01->sendCmd("AT+CIPMUX=1", (char *)"OK", 2, 100000);
-    if(esp01->waitStartCmdRespSynch() != ESP01_RESP_FOUND) return false;
+    if(esp01->waitStartCmdRespSync() != ESP01_RESP_FOUND) return false;
 
     int findDoubleDots = HOST.indexOf(':');
 
     esp01->sendCmd("AT+CIPSTART=4,\"TCP\",\""+ (findDoubleDots > 0? HOST.substring(0, findDoubleDots): HOST) +"\","+ SERVER_PORT, (char *)"OK", 2, 5000000);
-    if(esp01->waitStartCmdRespSynch() != ESP01_RESP_FOUND) return false;
+    if(esp01->waitStartCmdRespSync() != ESP01_RESP_FOUND) return false;
     esp01->sendCmd("AT+CIPSEND=4," +String(header.length()+4), (char *)">", 1, 5000000);
-    if(esp01->waitStartCmdRespSynch() != ESP01_RESP_FOUND) return false;
+    if(esp01->waitStartCmdRespSync() != ESP01_RESP_FOUND) return false;
 
     esp01->sendCmd(header, (char *)"OK", 2, 1000000);
-    esp01->waitStartCmdRespSynch();
+    esp01->waitStartCmdRespSync();
     esp01->sendCmd("AT+CIPCLOSE=0", (char *)"OK", 2, 1000000);
-    esp01->waitStartCmdRespSynch();
+    esp01->waitStartCmdRespSync();
 
     timerServerPing = millis();
     return true;
@@ -60,33 +59,38 @@ bool ESP01WebsocketClient::upgradeToWS(){
 
 void ESP01WebsocketClient::connectToWifi(String ssid, String password){
     esp01->sendCmd("AT", (char *)"OK", 2, 50000);
-    if(esp01->waitStartCmdRespSynch() != ESP01_RESP_FOUND) return;
+    if(esp01->waitStartCmdRespSync() != ESP01_RESP_FOUND) return;
 
     esp01->sendCmd("AT+CWMODE=1", (char *)"OK", 2, 50000);
-    if(esp01->waitStartCmdRespSynch() != ESP01_RESP_FOUND) return;
+    if(esp01->waitStartCmdRespSync() != ESP01_RESP_FOUND) return;
 
     esp01->sendCmd("AT+CWJAP=\""+ ssid +"\",\""+ password +"\"", (char *)"OK", 2, 20000000);
-    if(esp01->waitStartCmdRespSynch() != ESP01_RESP_FOUND) return;
+    if(esp01->waitStartCmdRespSync() != ESP01_RESP_FOUND) return;
 }
 
-void ESP01WebsocketClient::listenServer(){
-    
+int ESP01WebsocketClient::listenServer(){
     // sendPacket(ESP01WS_OP_TEXT, 11, "HELLO WORLD");
 
     esp01->readSerial();
     if(esp01->packetAvailable()){
         timerServerPing = millis();
-        PacketData packet = esp01->popPacket();
-        if(packet.header == 137)
+        PacketData packet = esp01->peekPacket();
+        if(packet.header == 137){
             sendPacket(ESP01WS_OP_PONG);
-        for(int i = 0; i < packet.readIndex; i++){
-            Serial.print(packet.data[i]);
+            esp01->popPacket();
+            return 0;
         }
+        return 1;
     }
     if(timerServerPing != 0 && millis() - timerServerPing > TIMEOUT_SERVER_PING){
         // dissconnected
         while(!upgradeToWS()){delay(WS_RECONNECT_INTERVAL);}
     }
+    return 0;
+}
+
+PacketData ESP01WebsocketClient::popPacket(){
+    return esp01->popPacket();
 }
 
 void ESP01WebsocketClient::sendPacket(int opcode, int payloadLen, String payload){
@@ -109,18 +113,17 @@ void ESP01WebsocketClient::sendPacket(int opcode, int payloadLen, String payload
     int i = 0;
     for(; i < lenHeader; i++)
         packet[i] = header[i];
-    for(; i < payloadLen; i++){
+    for(; i < lenTotal; i++){
         packet[i] = payload[i-lenHeader];
     }
 
     // send
     esp01->sendCmd("AT+CIPSEND=4," +String(lenTotal), (char *)">", 1, 50000);
-    esp01->waitStartCmdRespSynch();
+    esp01->waitStartCmdRespSync();
     esp01->sendCmd((uint8_t *)packet, lenTotal, (char *)"OK", 2, 50000);
 }
 
 void ESP01WebsocketClient::sendPacket(int opcode){
-    Serial.println("SendPacket");
 
     uint8_t header[2];
     header[0] = 128;
@@ -129,9 +132,6 @@ void ESP01WebsocketClient::sendPacket(int opcode){
     //length 
     header[1] = 0;
     esp01->sendCmd("AT+CIPSEND=4," +String(2), (char *)">", 1, 50000);
-    esp01->waitStartCmdRespSynch();
+    esp01->waitStartCmdRespSync();
     esp01->sendCmd((uint8_t *)header, 2, (char *)"OK", 2, 50000);
 }
-
-
-

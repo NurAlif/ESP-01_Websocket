@@ -13,16 +13,16 @@ void setup() {
 }
 
 void loop() {
-  digitalWrite(LED_BUILTIN, HIGH);
   delay(500);
-  Serial.println("-");
-  digitalWrite(LED_BUILTIN, LOW);
-  delay(200);
-  ws.listenServer();
-}
-/*
--13-10-43-73-80-68-44-52-44-50-58-137-0-
--13-10-43-73-80-68-44-52-44-50-58-137-0-
--13-10-43-73-80-68-44-52-44-49-52-58-129-12-123-34-99-109-100-34-58-34-79-75-34-125
 
-*/
+  if(ws.listenServer() > 0){
+    PacketData packet = ws.popPacket();
+    for(int i = 0; i < packet.size; i++)
+      Serial.write(packet.data[i]);
+    Serial.flush();
+
+    digitalWrite(LED_BUILTIN, HIGH);
+    delay(200);
+    digitalWrite(LED_BUILTIN, LOW);
+  }
+}

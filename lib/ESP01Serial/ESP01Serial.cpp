@@ -2,18 +2,24 @@
 
 ESP01Serial::ESP01Serial(Stream *_serial){
     serial = _serial;
-    #define SERIAL_BUFFER_SIZE 256
+}
+
+ESP01Serial::ESP01Serial(Stream *_serial, int _pinReset){
+    serial = _serial;
+    pinReset = _pinReset;
+
+    pinMode(pinReset, OUTPUT);
+    digitalWrite(pinReset, HIGH);
 }
 
 void ESP01Serial::sendCmd(String cmd, char findData[], int lenFindData, unsigned long timeout){
     timeoutDataWait = timeout;
     data2waitlen = lenFindData;
 
-    if(data2waitlen > 8) data2waitlen = 8;
+    if(data2waitlen > DATA2WAIT_BUFFER_SIZE) data2waitlen = DATA2WAIT_BUFFER_SIZE;
 
     for(int i = 0; i < lenFindData; i++)
         data2wait[i] = findData[i];
-    Serial.println(cmd);
     serial->println(cmd);
     
     lastInputLength = 0;
@@ -25,7 +31,7 @@ void ESP01Serial::sendCmd(uint8_t *cmd, int lenCmd, char findData[], int lenFind
     timeoutDataWait = timeout;
     data2waitlen = lenFindData;
 
-    if(data2waitlen > 8) data2waitlen = 8;
+    if(data2waitlen > DATA2WAIT_BUFFER_SIZE) data2waitlen = DATA2WAIT_BUFFER_SIZE;
 
     for(int i = 0; i < lenFindData; i++)
         data2wait[i] = findData[i];
@@ -54,12 +60,10 @@ int ESP01Serial::waitStartCmdResp(){
         newLen++;
         char currentChar = serial->read();
         
-        Serial.print(currentChar);
+        // Serial.print(currentChar);
 
         inputBuffer[lastInputLength++] = currentChar;
     }
-
-    if(lastInputLength > 2048) Serial.println("OVERFLOW");
 
     if(newLen > 0)
     for(int i = 0; i < lastInputLength; i++){
@@ -76,7 +80,6 @@ int ESP01Serial::waitStartCmdResp(){
             }
             if(searchIndex >= data2waitlen){
                 isSequenceFound = true;
-                Serial.println("FOUND");
             } 
         }
     }
@@ -88,15 +91,22 @@ int ESP01Serial::waitStartCmdResp(){
     return ESP01_RESP_NOTFOUND;
 }
 
-int ESP01Serial::waitStartCmdRespSynch(){
+int ESP01Serial::waitStartCmdRespSync(){
     int response = 0;
     while(response == ESP01_RESP_NOTFOUND)
         response = waitStartCmdResp();
 
-    if(response == ESP01_RESP_FOUND) Serial.println("ESP01_RESP_FOUND");
-    else if(response == ESP01_RESP_TIMEOUT) Serial.println("ESP01_RESP_TIMEOUT");
+    // if(response == ESP01_RESP_FOUND) Serial.println("ESP01_RESP_FOUND");
+    // else if(response == ESP01_RESP_TIMEOUT) Serial.println("ESP01_RESP_TIMEOUT");
 
     return response;
+}
+
+void ESP01Serial::resetHardware(){
+    digitalWrite(pinReset, HIGH);
+    delay(500);
+    digitalWrite(pinReset, HIGH);
+    delay(500);
 }
 
 void ESP01Serial::processPacket(PacketData *packetData, char currentChar){
@@ -137,13 +147,11 @@ void ESP01Serial::processPacket(PacketData *packetData, char currentChar){
             }
             break;
         case ESP01_STATE_READ_DATA:
-            Serial.print("<");
             packetData->data[packetData->readIndex] = currentChar;
             if(packetData->readIndex <= 0) packetData->header = uint8_t(currentChar);
             packetData->readIndex++;
             if(packetData->readIndex >= packetData->size) {
                 packetData->state = ESP01_STATE_COMPLETE;
-                Serial.println("Packet COmplete");
                 delay(1);
             }
             break;
@@ -157,13 +165,13 @@ void ESP01Serial::readSerial(){
     PacketData *packetCurrent = &packetBuffer[packetCount];
     while(serial->available()){
         char currentChar = serial->read();
-        Serial.print(currentChar);
-        // Serial.print(packetCount);
+        // Serial.print(currentChar);
+        
         processPacket(packetCurrent, currentChar);
 
         if(packetCurrent->state == ESP01_STATE_COMPLETE){
             packetCount++;
-            if(packetCount >= 8) shiftPacketsToLeft();
+            if(packetCount >= PACKETS_BUFFER_SIZE) shiftPacketsToLeft();
             packetCurrent = &packetBuffer[packetCount];
         }
     }
@@ -172,7 +180,11 @@ void ESP01Serial::readSerial(){
 PacketData ESP01Serial::popPacket(){
     PacketData packetData = packetBuffer[0];
     shiftPacketsToLeft();
-    Serial.println("SHIFT");
+    return packetData;
+}
+
+PacketData ESP01Serial::peekPacket(){
+    PacketData packetData = packetBuffer[0];
     return packetData;
 }
 
@@ -185,5 +197,4 @@ void ESP01Serial::shiftPacketsToLeft(){
         packetBuffer[i-1] = packetBuffer[i];
     }
     packetBuffer[--packetCount].state = ESP01_STATE_FIND_START;
-    // packetBuffer[--packetCount].readIndex = 0;
 }
