@@ -36,7 +36,7 @@ ESP01WebsocketClient::ESP01WebsocketClient(String host, String ws_port, String u
 }
 
 bool ESP01WebsocketClient::upgradeToWS(){
-    esp01->sendCmd("AT+CIPCLOSE=0", (char *)"OK", 2, 1000000);
+    esp01->sendCmd("AT+CIPCLOSE=5", (char *)"OK", 2, 1000000);
     esp01->waitStartCmdRespSync();
     esp01->sendCmd("AT+CIPMUX=1", (char *)"OK", 2, 100000);
     if(esp01->waitStartCmdRespSync() != ESP01_RESP_FOUND) return false;

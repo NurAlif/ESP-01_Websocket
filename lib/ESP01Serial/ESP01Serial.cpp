@@ -60,7 +60,7 @@ int ESP01Serial::waitStartCmdResp(){
         newLen++;
         char currentChar = serial->read();
         
-        // Serial.print(currentChar);
+        Serial.print(currentChar);
 
         inputBuffer[lastInputLength++] = currentChar;
     }
@@ -165,7 +165,7 @@ void ESP01Serial::readSerial(){
     PacketData *packetCurrent = &packetBuffer[packetCount];
     while(serial->available()){
         char currentChar = serial->read();
-        // Serial.print(currentChar);
+        Serial.print(currentChar);
         
         processPacket(packetCurrent, currentChar);
 
